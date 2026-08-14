@@ -1,13 +1,15 @@
 services:
   application:
     container_name: foody-application
-    image: node:lts-alpine
+    build:
+      context: .
+      dockerfile: .docker/foody-application/Dockerfile
     ports:
       - "3000:3000"
     volumes:
       - ./code:/home/node/code
+      - /home/node/code/foody-application/node_modules
     working_dir: /home/node/code/foody-application
-    command: "npm run dev"
     depends_on: 
       - backend
     environment:
@@ -17,7 +19,7 @@ services:
     tty: true
   backend:
     container_name: foody-backend
-    image: mongo:latest
+    image: mongo:7.0
     restart: always
     environment:
       DB_NAME: foody
