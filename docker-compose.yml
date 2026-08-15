@@ -1,4 +1,5 @@
 services:
+  # Next.js application
   application:
     container_name: foody-application
     build:
@@ -12,11 +13,14 @@ services:
     working_dir: /home/node/code/foody-application
     depends_on: 
       - backend
+      - redis
     environment:
       - HOST=0.0.0.0
       - CHOKIDAR_USEPOLLING=true
       - CHOKIDAR_INTERVAL=100
     tty: true
+
+  # MongoDB Database
   backend:
     container_name: foody-backend
     image: mongo:7.0
@@ -29,5 +33,15 @@ services:
     volumes:
       - "./.docker/foody-backend/seed-mongodb.js:/docker-entrypoint-initdb.d/seed-mongodb.js"
       - mongodb_data_container:/data/db
+  
+  # Redis Cache Service
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data_container:/data
+
 volumes:
   mongodb_data_container:
+  redis_data_container:
