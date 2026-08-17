@@ -9,7 +9,7 @@ export default async function Home() {
     const serializedLocations = JSON.parse(JSON.stringify(initialData.locations));
     
     return (
-        <main className="px-10 py-4">
+        <main className="container mx-auto px-10 py-4">
             <h1>Welcome to foody</h1>
 
             <InfiniteLocations

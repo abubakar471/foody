@@ -6,7 +6,7 @@ interface LocationDetailsProps{
 
 const LocationDetails = ({ location }: LocationDetailsProps) => {
     return(
-        <div className="px-10 py-6">
+        <div className="container mx-auto px-10 py-6">
             <ul className="flex flex-col gap-y-6">
                 <li className="text-lg">
                     Address: {location.address ?? "N/A"}

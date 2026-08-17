@@ -1,11 +1,6 @@
 import {Schema, InferSchemaType } from "mongoose";
 
 export const UserSchema = new Schema({
-    user_id: {
-        type: String,
-        required: true,
-        unique: true
-    },
     name: {
         type: String, 
         required: true
@@ -15,10 +10,17 @@ export const UserSchema = new Schema({
         required: true,
         unique: true
     },
-    createdAt: {
-        type: Date, 
-        default: Date.now()
-    }
-});
+    image: {
+      type: String,
+      default: "",
+    },
+    // Array of connected OAuth providers (e.g., [{ provider: 'github', providerAccountId: '12345' }])
+    accounts: [
+      {
+        provider: { type: String, required: true },
+        providerAccountId: { type: String, required: true },
+      },
+    ],
+}, { timestamps: true });
 
 export type UserType = InferSchemaType<typeof UserSchema>;

@@ -11,7 +11,7 @@ const LocationList = ({ locations }: LocationListProps) => {
     }
 
     return(
-        <ul className="border border-neutral-900 grid grid-cols-3 gap-10">
+        <ul className="grid grid-cols-2 gap-10">
             {
                 locations.map((location) => (
                     <LocationListItem key={location.location_id} location={location} />

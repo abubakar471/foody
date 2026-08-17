@@ -60,7 +60,7 @@ const LocationDetailsPage = async({params}: PageProps) => {
     }
 
     return(
-        <main className="mt-10">
+        <main className="mt-10 container mx-auto">
             <div className="px-10 mb-6">
                 <Link href="/"> {"<-"} Go Back</Link>
             </div>

@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import NextAuth from "next-auth";
+import { authConfig } from "@/auth.config";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 
-// 1. Explicitly pass env vars to avoid runtime initialization crashes
+// Initialize NextAuth with Edge-safe config
+const { auth } = NextAuth(authConfig);
+
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL || "",
   token: process.env.UPSTASH_REDIS_REST_TOKEN || "",
@@ -23,7 +27,7 @@ const graphqlLimiter = new Ratelimit({
   prefix: "@upstash/ratelimit/graphql",
 });
 
-export async function middleware(req: NextRequest) {
+export default auth(async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   const ip =
@@ -56,13 +60,10 @@ export async function middleware(req: NextRequest) {
     return response;
   } catch (error) {
     console.error("Rate limiter evaluation failed:", error);
-    // FAIL-OPEN STRATEGY: If Redis is down, allow request through so users aren't locked out
     return NextResponse.next();
   }
-}
+});
 
 export const config = {
   matcher: "/api/:path*",
 };
-
-
