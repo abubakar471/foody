@@ -1,8 +1,9 @@
 import Location from "@/mongoose/locations/model";
-import Wishlist from "@/mongoose/wishlists/model";
 import { LocationType } from "@/mongoose/locations/schema";
 import redis from "@/lib/redis";
 import { Types } from "mongoose";
+
+const LOCATION_CACHE_TTL = 3600; // Cache TTL in seconds (e.g., 1 hour)
 
 // interface for cursor based pagination
 export interface PaginatedLocationResponse {
@@ -20,7 +21,7 @@ export const findLocations = async(limit: number, cursor?: string): Promise<Pagi
         // build query filter using MongoDB _id index
         const query: Record<string, any> = {};
 
-        if(query) {
+        if(cursor) {
             query._id = { $gt: new Types.ObjectId(cursor) }
         }
 
@@ -49,66 +50,62 @@ export const findLocations = async(limit: number, cursor?: string): Promise<Pagi
     }
 }
 
-/*
- * 2. Get User Wishlist with redis caching + MongoDB aggregation pipeline
-*/
-export const onUserWishlist = async(user_id: string): Promise<LocationType[]> => {
-    const cacheKey = `user:${user_id}:wishlist`;
+/**
+ * 2. Cache-Aside Multi-ID Fetching
+ * Checks Redis cache first, fetches missing items from MongoDB, and backfills cache
+ */
+export const findLocationsById = async (
+  locationIds: string[]
+): Promise<LocationType[]> => {
+  if (!locationIds || locationIds.length === 0) {
+    return [];
+  }
 
-    try{
-        // A. Check Redis Cache First (<2ms latency)
-        const cachedData = await redis.get(cacheKey);
-        if(cachedData) {
-            return JSON.parse(cachedData);
-        }
+  try {
+    const cacheKeys = locationIds.map((id) => `location:${id}`);
+    const cachedData = await redis.mget(...cacheKeys);
 
-        // B. Cache Miss -> Run single round-trip MongoDB Aggregation Pipeline
-        const wishlistedLocations: LocationType[] = await Wishlist.aggregate([
-            { $match: {userId: user_id } },
-            {
-                $lookup: {
-                    from: "locations",
-                    localField: "locationId",
-                    foreignField: "location_id",
-                    as: "locationDetails",
-                }
-            },
-            { $unwind: "$locationDetails" },
-            { $replaceRoot: { newRoot: "$locationDetails" } }
-        ]);
+    const foundLocations: LocationType[] = [];
+    const missingIds: string[] = [];
 
-        // C. write to redis with 1 hour expiraiton TTL (3600 seconds)
-        if(wishlistedLocations.length > 0) {
-            await redis.set(cacheKey, JSON.stringify(wishlistedLocations), "EX", 3600);
-        }
+    cachedData.forEach((item, index) => {
+      if (item) {
+        foundLocations.push(
+          typeof item === "string" ? JSON.parse(item) : (item as LocationType)
+        );
+      } else {
+        missingIds.push(locationIds[index]);
+      }
+    });
 
-        return wishlistedLocations;
-    } catch(err) {
-        console.error("error fetching user wishlist: ", err);
-        return [];
+    if (missingIds.length === 0) {
+      return foundLocations;
     }
-}
 
-export const updateWishlist = async(location_id: string, user_id: string, action: "add" | "remove" ): Promise<boolean> => {
-    const cacheKey = `user:${user_id}:wishlist`;
+    const dbLocations = await Location.find({
+      location_id: { $in: missingIds },
+    }).lean();
 
-    try{
-        if(action === "add"){
-            await Wishlist.updateOne(
-                { userId: user_id, locationId: location_id },
-                { $setOnInsert: { userId: user_id, locationId: location_id } },
-                { upsert: true }
-            );
-        } else if(action === "remove") {
-            await Wishlist.deleteOne({userId: user_id, locationId: location_id});
-        }
+    if (dbLocations.length > 0) {
+      const pipeline = redis.pipeline();
 
-        // D. Invalidate Redis cache so that the next read featches the fresh data
-        await redis.del(cacheKey);
+      dbLocations.forEach((location) => {
+        pipeline.setex(
+          `location:${location.location_id}`,
+          LOCATION_CACHE_TTL,
+          JSON.stringify(location)
+        );
+      });
 
-        return true;
-    } catch(err) {
-        console.error(`error updating wishlist (${action}): `, err);
-        return false;
+      await pipeline.exec();
     }
-}
+
+    return [...foundLocations, ...(dbLocations as LocationType[])];
+  } catch (err) {
+    console.error("Error in findLocationsById service:", err);
+    // Fallback directly to MongoDB if Redis throws an exception
+    return (await Location.find({
+      location_id: { $in: locationIds },
+    }).lean()) as LocationType[];
+  }
+};

@@ -8,7 +8,9 @@ WORKDIR /home/node/code/foody-application
 COPY code/foody-application/package*.json ./
 
 # Step 4: Install dependencies inside the container image
-RUN npm install
+RUN npm config set fetch-retry-maxtimeout 600000 \
+ && npm config set fetch-retries 5 \
+ && npm ci
 
 # Step 5: Expose Next.js default port
 EXPOSE 3000
