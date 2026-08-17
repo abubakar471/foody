@@ -1,6 +1,7 @@
 import { LocationType } from "@/mongoose/locations/schema";
 import redis from "@/lib/redis";
 import Wishlist from "@/mongoose/wishlists/model";
+import dbConnect from "@/middleware/db-connect";
 
 /*
  * 1. Get User Wishlist with redis caching + MongoDB aggregation pipeline
@@ -16,6 +17,7 @@ export const onUserWishlist = async(user_id: string): Promise<LocationType[]> =>
         }
 
         // B. Cache Miss -> Run single round-trip MongoDB Aggregation Pipeline
+        await dbConnect();
         const wishlistedLocations: LocationType[] = await Wishlist.aggregate([
             { $match: {userId: user_id } },
             {
@@ -46,6 +48,8 @@ export const updateWishlist = async(location_id: string, user_id: string, action
     const cacheKey = `user:${user_id}:wishlist`;
 
     try{
+        await dbConnect();
+
         if(action === "add"){
             await Wishlist.updateOne(
                 { userId: user_id, locationId: location_id },

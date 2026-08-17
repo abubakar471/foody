@@ -2,6 +2,7 @@ import Location from "@/mongoose/locations/model";
 import { LocationType } from "@/mongoose/locations/schema";
 import redis from "@/lib/redis";
 import { Types } from "mongoose";
+import dbConnect from "@/middleware/db-connect";
 
 const LOCATION_CACHE_TTL = 3600; // Cache TTL in seconds (e.g., 1 hour)
 
@@ -18,6 +19,8 @@ export interface PaginatedLocationResponse {
 */
 export const findLocations = async(limit: number, cursor?: string): Promise<PaginatedLocationResponse> => {
     try{
+        await dbConnect();
+
         // build query filter using MongoDB _id index
         const query: Record<string, any> = {};
 
@@ -81,6 +84,8 @@ export const findLocationsById = async (
     if (missingIds.length === 0) {
       return foundLocations;
     }
+    
+    await dbConnect();
 
     const dbLocations = await Location.find({
       location_id: { $in: missingIds },
@@ -104,6 +109,8 @@ export const findLocationsById = async (
   } catch (err) {
     console.error("Error in findLocationsById service:", err);
     // Fallback directly to MongoDB if Redis throws an exception
+    await dbConnect();
+
     return (await Location.find({
       location_id: { $in: locationIds },
     }).lean()) as LocationType[];

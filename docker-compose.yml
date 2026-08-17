@@ -7,6 +7,8 @@ services:
       dockerfile: .docker/foody-application/Dockerfile
     ports:
       - "3000:3000"
+    env_file:
+      - ./code/foody-application/.env.local
     volumes:
       - ./code:/home/node/code
       - /home/node/code/foody-application/node_modules
