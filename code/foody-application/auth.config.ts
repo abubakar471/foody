@@ -2,6 +2,7 @@ import type { NextAuthConfig } from "next-auth";
 import GitHub from "next-auth/providers/github";
 
 export const authConfig = {
+  trustHost: true,
   providers: [GitHub],
   callbacks: {
     // Pass custom JWT token payload to session
