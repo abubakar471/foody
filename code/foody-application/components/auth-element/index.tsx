@@ -23,7 +23,7 @@ export default function AuthElement() {
           </span>
 
           <nav className="flex items-center gap-3">
-            <Link href={`/list/${session.user.id}`}>
+            <Link href={`/wishlist/${session.user.id}`}>
               <Button variant="outline">Your wish list</Button>
             </Link>
 

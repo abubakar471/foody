@@ -6,43 +6,55 @@ import dbConnect from "@/middleware/db-connect";
 /*
  * 1. Get User Wishlist with redis caching + MongoDB aggregation pipeline
 */
-export const onUserWishlist = async(user_id: string): Promise<LocationType[]> => {
-    const cacheKey = `user:${user_id}:wishlist`;
+export const onUserWishlist = async (user_id: string): Promise<LocationType[]> => {
+  const cacheKey = `user:${user_id}:wishlist`;
 
-    try{
-        // A. Check Redis Cache First (<2ms latency)
-        const cachedData = await redis.get(cacheKey);
-        if(cachedData) {
-            return JSON.parse(cachedData);
-        }
-
-        // B. Cache Miss -> Run single round-trip MongoDB Aggregation Pipeline
-        await dbConnect();
-        const wishlistedLocations: LocationType[] = await Wishlist.aggregate([
-            { $match: {userId: user_id } },
-            {
-                $lookup: {
-                    from: "locations",
-                    localField: "locationId",
-                    foreignField: "location_id",
-                    as: "locationDetails",
-                }
-            },
-            { $unwind: "$locationDetails" },
-            { $replaceRoot: { newRoot: "$locationDetails" } }
-        ]);
-
-        // C. write to redis with 1 hour expiraiton TTL (3600 seconds)
-        if(wishlistedLocations.length > 0) {
-            await redis.set(cacheKey, JSON.stringify(wishlistedLocations), "EX", 3600);
-        }
-
-        return wishlistedLocations;
-    } catch(err) {
-        console.error("error fetching user wishlist: ", err);
-        return [];
+  try {
+    const cachedData = await redis.get(cacheKey);
+    if (cachedData) {
+      return JSON.parse(cachedData);
     }
-}
+
+    await dbConnect();
+
+    const wishlistedLocations: LocationType[] = await Wishlist.aggregate([
+      { $match: { userId: user_id } },
+      // Convert locationId to string to prevent type mismatch during $lookup
+      {
+        $addFields: {
+          locationIdStr: { $toString: "$locationId" },
+        },
+      },
+      {
+        $lookup: {
+          from: "locations",
+          let: { wishlistLocId: "$locationIdStr" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: [{ $toString: "$location_id" }, "$$wishlistLocId"],
+                },
+              },
+            },
+          ],
+          as: "locationDetails",
+        },
+      },
+      { $unwind: "$locationDetails" },
+      { $replaceRoot: { newRoot: "$locationDetails" } },
+    ]);
+
+    if (wishlistedLocations.length > 0) {
+      await redis.set(cacheKey, JSON.stringify(wishlistedLocations), "EX", 3600);
+    }
+
+    return wishlistedLocations;
+  } catch (err) {
+    console.error("error fetching user wishlist: ", err);
+    return [];
+  }
+};
 
 export const updateWishlist = async(location_id: string, user_id: string, action: "add" | "remove" ): Promise<boolean> => {
     const cacheKey = `user:${user_id}:wishlist`;
