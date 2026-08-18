@@ -1,19 +1,23 @@
-# Step 1: Start from the official base Node image
-FROM node:lts-alpine
-
-# Step 2: Set working directory inside container
+# Stage 1: Base image & dependencies
+FROM node:lts-alpine AS base
 WORKDIR /home/node/code/foody-application
-
-# Step 3: Copy package files first to leverage Docker layer caching
 COPY code/foody-application/package*.json ./
-
-# Step 4: Install dependencies inside the container image
 RUN npm config set fetch-retry-maxtimeout 600000 \
  && npm config set fetch-retries 5 \
  && npm ci
 
-# Step 5: Expose Next.js default port
+# Stage 2: Development (Used by local docker-compose)
+FROM base AS development
+ENV NODE_ENV=development
 EXPOSE 3000
-
-# Step 6: Set default start command
 CMD ["npm", "run", "dev"]
+
+# Stage 3: Production (Used by Render)
+FROM base AS production
+ENV NODE_ENV=production
+COPY code/foody-application/ ./
+RUN npm run build
+EXPOSE 3000
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+CMD ["npm", "start"]

@@ -1,0 +1,41 @@
+services:
+  # Primary Web Service (Exposed to the Internet)
+  - type: web
+    name: foody-application
+    runtime: docker
+    dockerfilePath: .docker/foody-application/Dockerfile
+    dockerBuildTarget: production
+    dockerContext: .
+    plan: free
+    region: singapore
+    envVars:
+      - key: PORT
+        value: "3000"
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        value: mongodb://foody-backend:27017/foody
+      - key: REDIS_URL
+        value: redis://redis:6379
+      - key: NEXTAUTH_SECRET
+        generateValue: true
+
+  # Private Service: MongoDB
+  - type: pserv
+    name: foody-backend
+    runtime: docker
+    dockerfilePath: .docker/foody-backend/Dockerfile
+    plan: free
+    region: singapore
+    envVars:
+      - key: MONGO_INITDB_DATABASE
+        value: foody
+
+  # Private Service: Redis
+  - type: pserv
+    name: redis
+    runtime: image
+    image:
+      url: redis:alpine
+    plan: free
+    region: singapore

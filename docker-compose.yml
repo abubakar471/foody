@@ -5,6 +5,7 @@ services:
     build:
       context: .
       dockerfile: .docker/foody-application/Dockerfile
+      target: development
     ports:
       - "3000:3000"
     env_file:
