@@ -43,7 +43,27 @@ services:
       - "6379:6379"
     volumes:
       - redis_data_container:/data
-
+  
+  # Test Runner Container (Jest in watch mode)
+  jest:
+    container_name: foody-jest
+    image: node:lts-alpine
+    working_dir: /home/node/code/foody-application
+    env_file:
+      - ./code/foody-application/.env.local
+    volumes:
+      - ./code:/home/node/code
+      - /home/node/code/foody-application/node_modules
+    depends_on:
+      - backend
+      - redis
+      - application
+    environment:
+      - NODE_ENV=test
+      - CHOKIDAR_USEPOLLING=true
+    tty: true
+    # Ensures node_modules are ready on container boot before launching watch mode
+    command: sh -c "npm install && npm run testWatch"
 volumes:
   mongodb_data_container:
   redis_data_container:
