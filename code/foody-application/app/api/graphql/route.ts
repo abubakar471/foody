@@ -4,9 +4,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolvers } from "@/graphql/resolvers";
 import { typeDefs } from "@/graphql/schema";
 import dbConnect from "@/middleware/db-connect";
+import { auth } from "@/auth";
+import { Session } from "next-auth";
 
 export interface GraphQLContext {
-  token: Record<string, unknown>;
+  session: Session | null;
   req: NextRequest;
 }
 
@@ -17,19 +19,14 @@ const server = new ApolloServer<GraphQLContext>({
 
 const handler = startServerAndCreateNextHandler<NextRequest, GraphQLContext>(server, {
   context: async (req) => {
-    // Replaces wrapper 4 (connectDB): establish/reuse DB connection per request
     await dbConnect();
+    const session = await auth();
 
-    // Replaces token context logic in step 2
-    const token = {}; 
-
-    return { req, token };
+    return { req, session };
   },
 });
 
-// Replaces wrapper 3 (allowCors) and method checking
 async function handleRequest(request: NextRequest) {
-  // 1. Handle Preflight OPTIONS requests for CORS
   if (request.method === "OPTIONS") {
     return new NextResponse(null, {
       status: 200,
@@ -42,10 +39,8 @@ async function handleRequest(request: NextRequest) {
     });
   }
 
-  // 2. Execute Apollo Server handler
   const response = await handler(request);
 
-  // 3. Attach CORS headers to actual response
   response.headers.set("Access-Control-Allow-Origin", "*");
   response.headers.set("Access-Control-Allow-Credentials", "true");
 
