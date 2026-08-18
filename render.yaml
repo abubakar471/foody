@@ -13,17 +13,25 @@ services:
         value: "3000"
       - key: NODE_ENV
         value: production
-      - key: MONGODB_URI
+      # FIX 1: Match Mongoose expectation (MONGO_URI instead of MONGODB_URI)
+      - key: MONGO_URI
         value: mongodb://foody-backend:27017/foody
       - key: REDIS_URL
         value: redis://redis:6379
       - key: NEXTAUTH_SECRET
         generateValue: true
+      # FIX 2: Trust Render's reverse proxy for Auth.js / NextAuth
+      - key: AUTH_TRUST_HOST
+        value: "true"
+      # FIX 3: Point NextAuth to production domain
+      - key: NEXTAUTH_URL
+        value: https://foody-application.onrender.com
 
   # Private Service: MongoDB
   - type: pserv
     name: foody-backend
     runtime: docker
+    # FIX 4: Use a custom Dockerfile to copy seed-mongodb.js into /docker-entrypoint-initdb.d/
     dockerfilePath: .docker/foody-backend/Dockerfile
     plan: free
     region: singapore
