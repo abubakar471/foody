@@ -1,6 +1,10 @@
 import Redis from "ioredis";
 
-const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
+// local development
+// const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
+
+// for production
+const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL || "redis://localhost:6379";
 
 declare global{
     var redisClient: Redis | undefined;
